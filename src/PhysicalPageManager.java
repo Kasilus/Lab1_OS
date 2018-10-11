@@ -20,7 +20,7 @@ public class PhysicalPageManager {
     private void initPhysicalPages() {
         physicalPages = new ArrayList<>();
         for (int i = 0; i < OS.VARIABLES.PHYSICAL_PAGE_AMOUNT; i++) {
-            physicalPages.add(new PhysicalPage(i));
+            physicalPages.add(new PhysicalPage());
         }
     }
 

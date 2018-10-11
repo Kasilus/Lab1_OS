@@ -24,17 +24,9 @@ public class PhysicalPageCreationTest {
     @Test
     public void checkAddressesNotNull(){
         boolean hasEmptyAddress = physicalPages.stream()
-                .map(PhysicalPage::getAddress)
                 .anyMatch(Objects::isNull);
 
         assertTrue(!hasEmptyAddress);
-    }
-
-    @Test
-    public void checkAddressesCorrectness() {
-        for (int i = 0x00; i < OS.VARIABLES.PHYSICAL_PAGE_AMOUNT; i++) {
-            assertTrue(physicalPages.get(i).getAddress() == i);
-        }
     }
 
 }
