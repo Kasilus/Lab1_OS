@@ -1,10 +1,14 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class OS {
 
-    class VARIABLES {
-        public final static int PHYSICAL_PAGE_AMOUNT = 256;
+    static class VARIABLES {
+        public final static Integer PHYSICAL_PAGE_AMOUNT = 256;
+        public final static TimeUnit TIME_UNIT_FOR_PROCESS = TimeUnit.MILLISECONDS;
+        public final static Integer TIME_FOR_PROCESS_MIN = 20;
+        public final static Integer TIME_FOR_PROCESS_MAX = 150;
     }
 
     PhysicalPageManager physicalPageManager;

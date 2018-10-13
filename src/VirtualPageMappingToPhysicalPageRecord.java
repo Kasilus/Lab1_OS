@@ -1,8 +1,9 @@
-public class VirtualPage {
+public class VirtualPageMappingToPhysicalPageRecord {
 
     private Boolean precedenceBit;
     private Boolean modificationBit;
     private Boolean readBit;
+    // bit of page calling
     private Boolean referencedBit;
     private PhysicalPage physicalPage;
 
