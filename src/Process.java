@@ -11,17 +11,19 @@ public class Process implements Runnable {
         public final static Integer TIME_FOR_PROCESS_SLEEP_MAX = 5;
     }
 
+    private OS os;
     private List<VirtualPageMappingToPhysicalPageRecord> records;
     private Integer needMemoryAtStart;
     private static Random random;
+    // virtual pages, which have links on physical pages at the moment
     private List<Integer> workingSet;
 
     // pass PID and set to thread
-    public Process(Integer pid, Integer needMemoryAtStart) {
+    public Process(Integer pid, Integer needMemoryAtStart, OS os) {
         Thread.currentThread().setName("Process-" + pid);
         this.needMemoryAtStart = needMemoryAtStart;
         initRecords();
-        this.workingSet = new ArrayList<>();
+        initWorkingSet();
     }
 
     private void initRecords() {
@@ -29,6 +31,17 @@ public class Process implements Runnable {
         for (int i = 0; i < this.needMemoryAtStart; i++) {
             VirtualPageMappingToPhysicalPageRecord record = new VirtualPageMappingToPhysicalPageRecord();
             records.add(record);
+        }
+    }
+
+    private void initWorkingSet() {
+        this.workingSet = new ArrayList<>();
+        // At first, working set is a 5 times smaller than "need memory at start"
+        // TODO: change later
+        Integer workingSetSize = records.size() / 5;
+        for (int i = 0; i < workingSetSize; i++) {
+            records.get(i).setPhysicalPage(os.getFreePhysicalPage());
+            workingSet.add(i);
         }
     }
 

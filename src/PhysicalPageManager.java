@@ -24,4 +24,14 @@ public class PhysicalPageManager {
         }
     }
 
+    public PhysicalPage getFreePhysicalPage() {
+        for (int i = 0; i < physicalPages.size(); i++) {
+            if (physicalPages.get(i).isFree) {
+                return physicalPages.get(i);
+            }
+        }
+
+        // no physical pages more
+        return null;
+    }
 }

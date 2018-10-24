@@ -15,7 +15,7 @@ public class Lab1 {
         Random random = new Random();
         for (int i = 0; i < numberOfProcesses; i++) {
             Integer needMemoryForProcessAtStart = random.nextInt(OS.VARIABLES.PHYSICAL_PAGE_AMOUNT * 5 / 4);
-            processes.add(new Process(i, needMemoryForProcessAtStart));
+            processes.add(new Process(i, needMemoryForProcessAtStart, os));
         }
 
     }

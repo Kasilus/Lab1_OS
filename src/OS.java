@@ -20,5 +20,8 @@ public class OS {
         return physicalPageManager.getPhysicalPages();
     }
 
+    public PhysicalPage getFreePhysicalPage() {
+        return physicalPageManager.getFreePhysicalPage();
+    }
 
 }
