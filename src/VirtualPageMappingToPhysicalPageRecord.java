@@ -11,6 +11,12 @@ public class VirtualPageMappingToPhysicalPageRecord {
 
     public VirtualPageMappingToPhysicalPageRecord(Integer id) {
         this.id = id;
+        this.precedenceBit = false;
+        this.modificationBit = false;
+        this.readBit = false;
+        this.referencedBit = false;
+        this.physicalPage = null;
+        this.lastAccessedTime = 0;
     }
 
     public Integer getId() {
@@ -63,5 +69,18 @@ public class VirtualPageMappingToPhysicalPageRecord {
 
     public void setLastAccessedTime(Integer lastAccessedTime) {
         this.lastAccessedTime = lastAccessedTime;
+    }
+
+    @Override
+    public String toString() {
+        return "VirtualPageMappingToPhysicalPageRecord{" +
+                "id=" + id +
+                ", precedenceBit=" + precedenceBit +
+                ", modificationBit=" + modificationBit +
+                ", readBit=" + readBit +
+                ", referencedBit=" + referencedBit +
+                ", physicalPage=" + physicalPage +
+                ", lastAccessedTime=" + lastAccessedTime +
+                '}';
     }
 }

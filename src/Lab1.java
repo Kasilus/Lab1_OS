@@ -1,7 +1,6 @@
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
 public class Lab1 {
 
@@ -15,7 +14,7 @@ public class Lab1 {
         List<Process> processes = new ArrayList<>();
         Random random = new Random();
         for (int i = 0; i < numberOfProcesses; i++) {
-            Integer needMemoryForProcessAtStart = random.nextInt(OS.VARIABLES.PHYSICAL_PAGE_AMOUNT * 5 / 4);
+            Integer needMemoryForProcessAtStart = random.nextInt(OS.VARIABLES.NEED_MEMORY_FOR_PROCESS_MIN + OS.VARIABLES.PHYSICAL_PAGE_AMOUNT * 6 / 5);
             processes.add(new Process(i, needMemoryForProcessAtStart, os));
         }
 
