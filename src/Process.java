@@ -5,9 +5,9 @@ public class Process {
 
     static class VARIABLES {
         public final static TimeUnit TIME_UNIT_FOR_PROCESS_SLEEP = TimeUnit.MILLISECONDS;
-        public final static Integer TIME_FOR_PROCESS_SLEEP_MIN = 10;
-        public final static Integer TIME_FOR_PROCESS_SLEEP_MAX = 200;
-        public final static Integer MIN_NEEDED_PROCESS_REFERENCES_COUNT = 5;
+        public final static Integer TIME_FOR_PROCESS_SLEEP_MIN = 1;
+        public final static Integer TIME_FOR_PROCESS_SLEEP_MAX = 20;
+        public final static Integer TIME_FOR_REFERENCED_PAGE_DELETE = 200;
     }
 
     private Integer pid;
@@ -18,8 +18,7 @@ public class Process {
     // virtual pages, which have links on physical pages at the moment
     private List<Integer> workingSet;
     // do it as constant
-    private Integer t = 500;
-    private LinkedList<Integer> lastSystemTactsTime = new LinkedList<>();
+    private Integer t = 800;
 
     // pass PID and set to thread
     public Process(Integer pid, Integer needMemoryAtStart, OS os) {
@@ -62,9 +61,30 @@ public class Process {
     // should use pages just from working set!!! (pages, which are in memory now)
     public void run(Integer timeToExecute) {
         System.out.println(this + "Awake. Time to execute: " + timeToExecute);
-        Long timeOfProcessAwake = System.currentTimeMillis();
 
-        while (timeToExecute > System.currentTimeMillis() - timeOfProcessAwake) {
+        // when we call page from working set it equals 4 ms, when not = 30 ms
+        Integer timePassed = 0;
+
+        // reset all pages lastTimeAccessed
+        for (VirtualPageMappingToPhysicalPageRecord record : records) {
+            record.setLastAccessedTime(0);
+        }
+
+        Integer timerCounter = 0;
+
+        while (timeToExecute >  timePassed) {
+
+            if (timePassed / VARIABLES.TIME_FOR_REFERENCED_PAGE_DELETE > timerCounter) {
+                //clear all references in working set
+                for (VirtualPageMappingToPhysicalPageRecord record : records) {
+                    if (record.getPrecedenceBit()) {
+                        record.setReferencedBit(false);
+                        record.setReadBit(false);
+                        record.setModificationBit(false);
+                    }
+                }
+                timerCounter++;
+            }
 
             Integer pageCalledAddress = null;
             // call some virtual page
@@ -73,6 +93,7 @@ public class Process {
                     System.out.println(this + "Start getting page address from working set");
                     pageCalledAddress = getRandomPageAddressFromWorkingSet();
                     System.out.println(this + "Finish getting page address from working set. Page address: " + pageCalledAddress);
+                    timePassed += 4;
                 } else {
                     System.out.println(this + "Start getting page address not from working set");
                     pageCalledAddress = getRandomPageAddressNotFromWorkingSet();
@@ -92,7 +113,7 @@ public class Process {
                         if (record.getReferencedBit()) {
                             System.out.println(this + "Record had reference during this system tact. Set current virtual time as last accessed");
                             // maybe, change this for the whole virtual time range
-                            Integer newLastAccessedTime = (int) (System.currentTimeMillis() - timeOfProcessAwake);
+                            Integer newLastAccessedTime = timePassed;
                             System.out.println("New last accessed time =" + newLastAccessedTime);
                             System.out.println(record);
                             record.setLastAccessedTime(newLastAccessedTime);
@@ -100,18 +121,17 @@ public class Process {
                                 recordWithNoModification = record;
                             }
                         } else if (!record.getReferencedBit()) {
-                            Integer pageAge = (int) ((System.currentTimeMillis() - timeOfProcessAwake) - record.getLastAccessedTime());
+                            Integer pageAge = (timePassed - record.getLastAccessedTime());
                             if (pageAge > t && !isPageReplaced) {
                                 System.out.println(this + "Record is old. t=" + t + ", pageAge=" + pageAge + ". Replace it with new one.");
                                 replacePhysicalPageReferenceFromOldToNewPage(record, records.get(pageCalledAddress));
                                 isPageReplaced = true;
-                            } else if (pageAge <= t) {
+                            } else if (pageAge <= t && !isPageReplaced) {
                                 System.out.println(this + "Record isn't old enough. t=" + t + ", pageAge=" + pageAge + ".");
                                 if (maxPageAgeToRemove == null || pageAge > maxPageAgeToRemove) {
                                     maxPageAgeToRemove = pageAge;
                                     maxPageAgeToRemoveRecord = record;
                                 }
-//                                record.setLastAccessedTime(record.getLastAccessedTime() + timeToExecute);
                             }
                         }
                         counter++;
@@ -137,13 +157,14 @@ public class Process {
                         }
                     }
                 }
-
+                timePassed += 30;
             }
 
             // read or write page
             System.out.println(this + "Read or modify chosen record");
             VirtualPageMappingToPhysicalPageRecord record = records.get(pageCalledAddress);
             record.setReferencedBit(true);
+            System.out.println(this + "Reference to record. Record address: " + pageCalledAddress);
             if (random.nextDouble() > 0.5) {
                 System.out.println(this + "Read");
                 record.setReadBit(true);
@@ -151,17 +172,6 @@ public class Process {
                 System.out.println(this + "Modify");
                 record.setModificationBit(true);
             }
-
-//            // update process time of last calls
-//            System.out.println(this + "Time for last tacts before.");
-//            lastSystemTactsTime.forEach(System.out::println);
-//            if (lastSystemTactsTime.size() > 5) {
-//                t -= lastSystemTactsTime.poll();
-//            }
-//            lastSystemTactsTime.addLast(timeToExecute);
-//            System.out.println(this + "Time for last tacts after.");
-//            lastSystemTactsTime.forEach(System.out::println);
-//            t+= timeToExecute;
 
             // process sleeping
             try {
@@ -176,9 +186,9 @@ public class Process {
         System.out.println(this + "Sleep...");
     }
 
-    private void replacePhysicalPageReferenceFromOldToNewPage (
+    private void replacePhysicalPageReferenceFromOldToNewPage(
             VirtualPageMappingToPhysicalPageRecord oldPageFromWorkingSet,
-             VirtualPageMappingToPhysicalPageRecord newPageForWorkingSet
+            VirtualPageMappingToPhysicalPageRecord newPageForWorkingSet
     ) {
         System.out.println(this + "Start page replacing.\nOld page: " + oldPageFromWorkingSet + "\nNew page: " + newPageForWorkingSet);
         oldPageFromWorkingSet.setPrecedenceBit(false);
