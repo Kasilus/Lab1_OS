@@ -17,8 +17,8 @@ public class Process {
     private static Random random = new Random();
     // virtual pages, which have links on physical pages at the moment
     private List<Integer> workingSet;
-    // time for the last process references
-    private Integer t = 0;
+    // do it as constant
+    private Integer t = 500;
     private LinkedList<Integer> lastSystemTactsTime = new LinkedList<>();
 
     // pass PID and set to thread
@@ -59,6 +59,7 @@ public class Process {
         System.out.println(this + "Finish init working set");
     }
 
+    // should use pages just from working set!!! (pages, which are in memory now)
     public void run(Integer timeToExecute) {
         System.out.println(this + "Awake. Time to execute: " + timeToExecute);
         Long timeOfProcessAwake = System.currentTimeMillis();
@@ -87,32 +88,34 @@ public class Process {
                 VirtualPageMappingToPhysicalPageRecord recordWithNoModification = null;
                 Boolean isPageReplaced = false;
                 for (VirtualPageMappingToPhysicalPageRecord record : records) {
-                    if (record.getReferencedBit()) {
-                        System.out.println(this + "Record had reference during this system tact. Set current virtual time as last accessed");
-                        // maybe, change this for the whole virtual time range
-                        Integer newLastAccessedTime = record.getLastAccessedTime() + (int)(System.currentTimeMillis() - timeOfProcessAwake);
-                        System.out.println("New last accessed time =" + newLastAccessedTime);
-                        System.out.println(record);
-                        record.setLastAccessedTime(newLastAccessedTime);
-                        if (recordWithNoModification == null && !record.getModificationBit()) {
-                            recordWithNoModification = record;
-                        }
-                    } else if (!record.getReferencedBit()){
-                        Integer pageAge = (int)((System.currentTimeMillis() - timeOfProcessAwake) - record.getLastAccessedTime());
-                        if (pageAge > t && !isPageReplaced) {
-                            System.out.println(this + "Record is old. t=" + t + ", pageAge=" + pageAge + ". Replace it with new one.");
-                            replacePhysicalPageReferenceFromOldToNewPage(record, records.get(pageCalledAddress));
-                            isPageReplaced = true;
-                        } else if (pageAge <= t) {
-                            System.out.println(this + "Record isn't old enough. t=" + t + ", pageAge=" + pageAge + ".");
-                            if (maxPageAgeToRemove == null || pageAge > maxPageAgeToRemove) {
-                                maxPageAgeToRemove = pageAge;
-                                maxPageAgeToRemoveRecord = record;
+                    if (record.getPrecedenceBit()) {
+                        if (record.getReferencedBit()) {
+                            System.out.println(this + "Record had reference during this system tact. Set current virtual time as last accessed");
+                            // maybe, change this for the whole virtual time range
+                            Integer newLastAccessedTime = (int) (System.currentTimeMillis() - timeOfProcessAwake);
+                            System.out.println("New last accessed time =" + newLastAccessedTime);
+                            System.out.println(record);
+                            record.setLastAccessedTime(newLastAccessedTime);
+                            if (recordWithNoModification == null && !record.getModificationBit()) {
+                                recordWithNoModification = record;
                             }
-                            record.setLastAccessedTime(record.getLastAccessedTime() + timeToExecute);
+                        } else if (!record.getReferencedBit()) {
+                            Integer pageAge = (int) ((System.currentTimeMillis() - timeOfProcessAwake) - record.getLastAccessedTime());
+                            if (pageAge > t && !isPageReplaced) {
+                                System.out.println(this + "Record is old. t=" + t + ", pageAge=" + pageAge + ". Replace it with new one.");
+                                replacePhysicalPageReferenceFromOldToNewPage(record, records.get(pageCalledAddress));
+                                isPageReplaced = true;
+                            } else if (pageAge <= t) {
+                                System.out.println(this + "Record isn't old enough. t=" + t + ", pageAge=" + pageAge + ".");
+                                if (maxPageAgeToRemove == null || pageAge > maxPageAgeToRemove) {
+                                    maxPageAgeToRemove = pageAge;
+                                    maxPageAgeToRemoveRecord = record;
+                                }
+//                                record.setLastAccessedTime(record.getLastAccessedTime() + timeToExecute);
+                            }
                         }
+                        counter++;
                     }
-                    counter++;
                 }
 
                 // if all table was scanned, but no pages removed
@@ -149,6 +152,17 @@ public class Process {
                 record.setModificationBit(true);
             }
 
+//            // update process time of last calls
+//            System.out.println(this + "Time for last tacts before.");
+//            lastSystemTactsTime.forEach(System.out::println);
+//            if (lastSystemTactsTime.size() > 5) {
+//                t -= lastSystemTactsTime.poll();
+//            }
+//            lastSystemTactsTime.addLast(timeToExecute);
+//            System.out.println(this + "Time for last tacts after.");
+//            lastSystemTactsTime.forEach(System.out::println);
+//            t+= timeToExecute;
+
             // process sleeping
             try {
                 Integer timeForSleep = VARIABLES.TIME_FOR_PROCESS_SLEEP_MIN + random.nextInt(VARIABLES.TIME_FOR_PROCESS_SLEEP_MAX - VARIABLES.TIME_FOR_PROCESS_SLEEP_MIN);
@@ -158,17 +172,6 @@ public class Process {
                 System.out.println(this + "Interrupted while sleeping");
             }
         }
-
-        // update process time of last calls
-        System.out.println(this + "Time for last tacts before.");
-        lastSystemTactsTime.forEach(System.out::println);
-        if (lastSystemTactsTime.size() > 5) {
-            t -= lastSystemTactsTime.poll();
-        }
-        lastSystemTactsTime.addLast(timeToExecute);
-        System.out.println(this + "Time for last tacts after.");
-        lastSystemTactsTime.forEach(System.out::println);
-        t+= timeToExecute;
 
         System.out.println(this + "Sleep...");
     }
