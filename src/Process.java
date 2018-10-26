@@ -3,39 +3,36 @@ import java.util.concurrent.TimeUnit;
 
 public class Process {
 
+    // static variables
+    private static Random random = new Random();
     static class VARIABLES {
         public final static TimeUnit TIME_UNIT_FOR_PROCESS_SLEEP = TimeUnit.MILLISECONDS;
         public final static Integer TIME_FOR_PROCESS_SLEEP_MIN = 1;
         public final static Integer TIME_FOR_PROCESS_SLEEP_MAX = 20;
         public final static Integer TIME_FOR_REFERENCED_PAGE_DELETE = 200;
+        public final static Integer t = 800;
     }
 
     private Integer pid;
-    private OS os;
+    // virtual pages for process
     private List<VirtualPageMappingToPhysicalPageRecord> records;
-    private Integer needMemoryAtStart;
-    private static Random random = new Random();
-    // virtual pages, which have links on physical pages at the moment
     private List<Integer> workingSet;
-    // do it as constant
-    private Integer t = 800;
 
-    // pass PID and set to thread
+    private OS os;
+
     public Process(Integer pid, Integer needMemoryAtStart, OS os) {
         this.os = os;
         this.pid = pid;
-        this.needMemoryAtStart = needMemoryAtStart;
-        initRecords();
+        initRecords(needMemoryAtStart);
         initWorkingSet();
     }
 
-    private void initRecords() {
+    private void initRecords(Integer needMemoryAtStart) {
         System.out.println(this + "Start init records. Need records to process start: " + needMemoryAtStart);
         this.records = new ArrayList<>();
-        for (int i = 0; i < this.needMemoryAtStart; i++) {
+        for (int i = 0; i < needMemoryAtStart; i++) {
             VirtualPageMappingToPhysicalPageRecord record = new VirtualPageMappingToPhysicalPageRecord(i);
             records.add(record);
-//            System.out.println(record);
         }
         System.out.println(this + "Finish init records");
     }
@@ -43,8 +40,7 @@ public class Process {
     private void initWorkingSet() {
         System.out.println(this + "Start init working set");
         this.workingSet = new ArrayList<>();
-        // At first, working set is a 5 times smaller than "need memory at start"
-        // TODO: change later
+        // TODO: At first, working set is a 5 times smaller than "need memory at start". Change later
         Integer workingSetSize = records.size() / 5;
         System.out.println(this + "Working set size = " + workingSetSize);
         for (int i = 0; i < workingSetSize; i++) {
@@ -53,7 +49,6 @@ public class Process {
             records.get(i).setPrecedenceBit(true);
             freePhysicalPage.setFree(false);
             workingSet.add(i);
-//            System.out.println("Record" + i + " goes to working set");
         }
         System.out.println(this + "Finish init working set");
     }
@@ -63,18 +58,17 @@ public class Process {
         System.out.println(this + "Awake. Time to execute: " + timeToExecute);
 
         // when we call page from working set it equals 4 ms, when not = 30 ms
-        Integer timePassed = 0;
+        Integer timePassedFromProcessCall = 0;
+        Integer timerCounter = 0;
 
         // reset all pages lastTimeAccessed
         for (VirtualPageMappingToPhysicalPageRecord record : records) {
             record.setLastAccessedTime(0);
         }
 
-        Integer timerCounter = 0;
+        while (timeToExecute >  timePassedFromProcessCall) {
 
-        while (timeToExecute >  timePassed) {
-
-            if (timePassed / VARIABLES.TIME_FOR_REFERENCED_PAGE_DELETE > timerCounter) {
+            if (timePassedFromProcessCall / VARIABLES.TIME_FOR_REFERENCED_PAGE_DELETE > timerCounter) {
                 //clear all references in working set
                 for (VirtualPageMappingToPhysicalPageRecord record : records) {
                     if (record.getPrecedenceBit()) {
@@ -87,91 +81,26 @@ public class Process {
             }
 
             Integer pageCalledAddress = null;
-            // call some virtual page
             try {
                 if (random.nextDouble() > 0.1) {
                     System.out.println(this + "Start getting page address from working set");
                     pageCalledAddress = getRandomPageAddressFromWorkingSet();
                     System.out.println(this + "Finish getting page address from working set. Page address: " + pageCalledAddress);
-                    timePassed += 4;
+                    timePassedFromProcessCall += 4;
                 } else {
                     System.out.println(this + "Start getting page address not from working set");
                     pageCalledAddress = getRandomPageAddressNotFromWorkingSet();
                     System.out.println(this + "Finish getting page address not from working set. Page address: " + pageCalledAddress);
-                    // TODO: you can try to allocate physical memory if it is exists
+                    // TODO: you can try to allocate physical memory if it is exists and avoid exception below throw
                     throw new PageAbsenceException("Virtual page with address " + pageCalledAddress + " is not in working set");
                 }
             } catch (PageAbsenceException e) {
-                System.out.println(this + e.getMessage());
-                Integer counter = 0;
-                Integer maxPageAgeToRemove = null;
-                VirtualPageMappingToPhysicalPageRecord maxPageAgeToRemoveRecord = null;
-                VirtualPageMappingToPhysicalPageRecord recordWithNoModification = null;
-                Boolean isPageReplaced = false;
-                for (VirtualPageMappingToPhysicalPageRecord record : records) {
-                    if (record.getPrecedenceBit()) {
-                        if (record.getReferencedBit()) {
-                            System.out.println(this + "Record had reference during this system tact. Set current virtual time as last accessed");
-                            // maybe, change this for the whole virtual time range
-                            Integer newLastAccessedTime = timePassed;
-                            System.out.println("New last accessed time =" + newLastAccessedTime);
-                            System.out.println(record);
-                            record.setLastAccessedTime(newLastAccessedTime);
-                            if (recordWithNoModification == null && !record.getModificationBit()) {
-                                recordWithNoModification = record;
-                            }
-                        } else if (!record.getReferencedBit()) {
-                            Integer pageAge = (timePassed - record.getLastAccessedTime());
-                            if (pageAge > t && !isPageReplaced) {
-                                System.out.println(this + "Record is old. t=" + t + ", pageAge=" + pageAge + ". Replace it with new one.");
-                                replacePhysicalPageReferenceFromOldToNewPage(record, records.get(pageCalledAddress));
-                                isPageReplaced = true;
-                            } else if (pageAge <= t && !isPageReplaced) {
-                                System.out.println(this + "Record isn't old enough. t=" + t + ", pageAge=" + pageAge + ".");
-                                if (maxPageAgeToRemove == null || pageAge > maxPageAgeToRemove) {
-                                    maxPageAgeToRemove = pageAge;
-                                    maxPageAgeToRemoveRecord = record;
-                                }
-                            }
-                        }
-                        counter++;
-                    }
-                }
-
-                // if all table was scanned, but no pages removed
-                if (!isPageReplaced) {
-                    System.out.println(this + "No page was replaced. Bad, very bad...");
-                    if (maxPageAgeToRemove != null) {
-                        System.out.println(this + "Yeah, we have the oldest page. Replace it.");
-                        replacePhysicalPageReferenceFromOldToNewPage(maxPageAgeToRemoveRecord, records.get(pageCalledAddress));
-                    } else {
-                        // delete random page with M = 0
-                        System.out.println(this + "Dammit... The worst case. That was reference to all pages in working set. Let's replace random with no modification priority.");
-                        if (recordWithNoModification != null) {
-                            System.out.println(this + "Random record with no modification found. Replace it. " + recordWithNoModification);
-                            replacePhysicalPageReferenceFromOldToNewPage(recordWithNoModification, records.get(pageCalledAddress));
-                        } else {
-                            Integer pageToRemoveIndex = random.nextInt(workingSet.size());
-                            System.out.println(this + "Shit. All were modified. Randooom record to replace is:" + records.get(pageToRemoveIndex));
-                            replacePhysicalPageReferenceFromOldToNewPage(records.get(pageToRemoveIndex), records.get(pageCalledAddress));
-                        }
-                    }
-                }
-                timePassed += 30;
+                replaceAbsentPageWithOldFromWorkingSet(timePassedFromProcessCall, pageCalledAddress, e);
+                timePassedFromProcessCall += 30;
             }
 
-            // read or write page
             System.out.println(this + "Read or modify chosen record");
-            VirtualPageMappingToPhysicalPageRecord record = records.get(pageCalledAddress);
-            record.setReferencedBit(true);
-            System.out.println(this + "Reference to record. Record address: " + pageCalledAddress);
-            if (random.nextDouble() > 0.5) {
-                System.out.println(this + "Read");
-                record.setReadBit(true);
-            } else {
-                System.out.println(this + "Modify");
-                record.setModificationBit(true);
-            }
+            referenceToPageByAddres(pageCalledAddress);
 
             // process sleeping
             try {
@@ -184,6 +113,74 @@ public class Process {
         }
 
         System.out.println(this + "Sleep...");
+    }
+
+    private Integer replaceAbsentPageWithOldFromWorkingSet(Integer timePassed, Integer pageCalledAddress, PageAbsenceException e) {
+        System.out.println(this + e.getMessage());
+        Integer maxPageAgeToRemove = null;
+        VirtualPageMappingToPhysicalPageRecord maxPageAgeToRemoveRecord = null;
+        VirtualPageMappingToPhysicalPageRecord recordWithNoModification = null;
+        Boolean isPageReplaced = false;
+        for (VirtualPageMappingToPhysicalPageRecord record : records) {
+            if (record.getPrecedenceBit()) {
+                if (record.getReferencedBit()) {
+                    System.out.println(this + "Record had reference during this system tact. Set current virtual time as last accessed");
+                    System.out.println("New last accessed time =" + timePassed + "\n" + record);
+                    record.setLastAccessedTime(timePassed);
+                    if (recordWithNoModification == null && !record.getModificationBit()) {
+                        recordWithNoModification = record;
+                    }
+                } else {
+                    Integer pageAge = (timePassed - record.getLastAccessedTime());
+                    if (pageAge > VARIABLES.t && !isPageReplaced) {
+                        System.out.println(this + "Record is old. t=" + VARIABLES.t + ", pageAge=" + pageAge + ". Replace it with new one.");
+                        replacePhysicalPageReferenceFromOldToNewPage(record, records.get(pageCalledAddress));
+                        isPageReplaced = true;
+                    } else if (pageAge <= VARIABLES.t && !isPageReplaced) {
+                        System.out.println(this + "Record isn't old enough. t=" + VARIABLES.t + ", pageAge=" + pageAge + ".");
+                        if (maxPageAgeToRemove == null || pageAge > maxPageAgeToRemove) {
+                            maxPageAgeToRemove = pageAge;
+                            maxPageAgeToRemoveRecord = record;
+                        }
+                    }
+                }
+            }
+        }
+        if (!isPageReplaced) {
+            System.out.println(this + "No page has been replaced yet.");
+            replacePageAfterAllRecordsScan(pageCalledAddress, maxPageAgeToRemoveRecord, recordWithNoModification);
+        }
+        return timePassed;
+    }
+
+    private void replacePageAfterAllRecordsScan(Integer pageCalledAddress, VirtualPageMappingToPhysicalPageRecord maxPageAgeToRemoveRecord, VirtualPageMappingToPhysicalPageRecord recordWithNoModification) {
+        if (maxPageAgeToRemoveRecord != null) {
+            System.out.println(this + "The oldest page found. Replace it.");
+            replacePhysicalPageReferenceFromOldToNewPage(maxPageAgeToRemoveRecord, records.get(pageCalledAddress));
+        } else {
+            System.out.println(this + "That was reference to all pages in working set. Replace random with no modification priority.");
+            if (recordWithNoModification != null) {
+                System.out.println(this + "Random record with no modification found. Replace it. " + recordWithNoModification);
+                replacePhysicalPageReferenceFromOldToNewPage(recordWithNoModification, records.get(pageCalledAddress));
+            } else {
+                Integer pageToRemoveIndex = random.nextInt(workingSet.size());
+                System.out.println(this + "All pages were modified. Random record to replace is:" + records.get(pageToRemoveIndex));
+                replacePhysicalPageReferenceFromOldToNewPage(records.get(pageToRemoveIndex), records.get(pageCalledAddress));
+            }
+        }
+    }
+
+    private void referenceToPageByAddres(Integer pageCalledAddress) {
+        VirtualPageMappingToPhysicalPageRecord record = records.get(pageCalledAddress);
+        record.setReferencedBit(true);
+        System.out.println(this + "Reference to record. Record address: " + pageCalledAddress);
+        if (random.nextDouble() > 0.5) {
+            System.out.println(this + "Read");
+            record.setReadBit(true);
+        } else {
+            System.out.println(this + "Modify");
+            record.setModificationBit(true);
+        }
     }
 
     private void replacePhysicalPageReferenceFromOldToNewPage(

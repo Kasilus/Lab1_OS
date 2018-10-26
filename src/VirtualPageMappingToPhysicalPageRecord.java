@@ -1,12 +1,16 @@
 public class VirtualPageMappingToPhysicalPageRecord {
 
     private final Integer id;
+    // P bit
     private Boolean precedenceBit;
-    private Boolean modificationBit;
-    private Boolean readBit;
     // bit of page calling (R)
     private Boolean referencedBit;
+    // M bit
+    private Boolean modificationBit;
+    private Boolean readBit;
+    // reference on physical page
     private PhysicalPage physicalPage;
+    // time of last reference to record during current process virtual time
     private Integer lastAccessedTime;
 
     public VirtualPageMappingToPhysicalPageRecord(Integer id) {

@@ -10,7 +10,6 @@ public class Lab1 {
         List<PhysicalPage> physicalPages = os.getPhysicalPages();
         // Static number of processes. Maybe, latter it will be dynamic number with process killing and init. ahah-ahahah
         Integer numberOfProcesses = 3;
-        // TODO: replace with smth more comfortable
         List<Process> processes = new ArrayList<>();
         Random random = new Random();
         for (int i = 0; i < numberOfProcesses; i++) {
